@@ -1,5 +1,5 @@
 {
-  "id": "yamaha-musiccast",
+  "id": "YamahaMusiccast",
   "name": "Yamaha musiccast manager",
   "description": "Plugin permettant la gestion des appareils Yamaha compatible Musiccast",
   "licence": "AGPL",
@@ -9,6 +9,6 @@
   "hasDependency": false,
   "hasOwnDeamon": true,
   "maxDependancyInstallTime": 0,
-  "changelog": "https://nextdom.github.io/plugin-ExtraTemplate/#language#/changelog",
-  "documentation": "https://nextdom.github.io/plugin-ExtraTemplate/#language#/"
+  "changelog": "https://lucguinchard.github.io/plugin-Yamaha-musiccast/#language#/changelog",
+  "documentation": "https://lucguinchard.github.io/plugin-Yamaha-musiccast#language#/"
 }

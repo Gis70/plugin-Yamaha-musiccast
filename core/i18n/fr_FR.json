@@ -1,5 +1,5 @@
 {
-	"plugins\/Musiccast\/desktop\/php\/Musiccast.php": {
+	"plugins\/YamahaMusiccast\/desktop\/php\/YamahaMusiccastphp": {
 		"Action": "Action",
 		"Activer": "Activer",
 		"Ajouter": "Ajouter",
@@ -21,12 +21,9 @@
 		"Type": "Type",
 		"Visible": "Visible"
 	},
-	"plugins\/Musiccast\/plugin_info\/configuration.php": {
-		"Global param 1": "Premier paramètre global",
-		"Global param 2": "Deuxième paramètre global",
-		"Global param 3": "Troisième paramètre global",
-		"Default value": "Valeur par défaut",
-		"First value": "Première valeur",
-		"Second value": "Deuxième valeur"
+	"plugins\/YamahaMusiccast\/plugin_info\/configuration.php": {
+		"comment.socket": "Le démon ouvre un socket qui permet au appareil Yahama Musiccast de communiquer avec lui",
+		"socket.port": "Port du socket",
+		"socket.port.default": "9999"
 	}
 }
