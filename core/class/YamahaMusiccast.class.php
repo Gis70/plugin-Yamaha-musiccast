@@ -63,11 +63,11 @@ class YamahaMusiccast extends eqLogic {
 
 	public function preSave() {
 		$this->setCategory('multimedia', 1);
-		if(empty($this->getLogicalId())) {
+		if (empty($this->getLogicalId())) {
 			$this->setLogicalId($this->getName());
 		}
 		$jsonGetNetworkStatus = YamahaMusiccast::CallAPI("GET", $this, "/YamahaExtendedControl/v1/system/getNetworkStatus");
-		if($jsonGetNetworkStatus === false) {
+		if ($jsonGetNetworkStatus === false) {
 			$this->setIsVisible(0);
 			$this->setIsEnable(0);
 		} else {
@@ -79,40 +79,10 @@ class YamahaMusiccast extends eqLogic {
 			$jsonGetDeviceInfo = YamahaMusiccast::CallAPI("GET", $this, "/YamahaExtendedControl/v1/system/getDeviceInfo");
 			$getDeviceInfo = json_decode($jsonGetDeviceInfo);
 			$this->setConfiguration('model_name', $getDeviceInfo->model_name);
-
-			$jsonGetFeatures = YamahaMusiccast::CallAPI("GET", $this, "/YamahaExtendedControl/v1/system/getFeatures");
-			$getFeatures = json_decode($jsonGetFeatures);
-			foreach ($getFeatures->zone as $zone) {
-				$zoneName = $zone->id;
-				foreach ($zone->func_list as $func) {
-					$this->createCmd($zoneName. '_' .$func . '_state');
-				}
-				$this->createCmd($zoneName. '_audio_error');
-				$this->createCmd($zoneName. '_audio_format');
-				$this->createCmd($zoneName. '_audio_fs');
-			}
-
-			$this->createCmd('netusb_input');
-			$this->createCmd('netusb_play_queue_type');
-			$this->createCmd('netusb_playback');
-			$this->createCmd('netusb_repeat');
-			$this->createCmd('netusb_shuffle');
-			$this->createCmd('netusb_play_time');
-			$this->createCmd('netusb_total_time');
-			$this->createCmd('netusb_artist');
-			$this->createCmd('netusb_album');
-			$this->createCmd('netusb_track');
-			$this->createCmd('netusb_albumart_url');
-			$this->createCmd('netusb_albumart_id');
-			$this->createCmd('netusb_usb_devicetype');
-			$this->createCmd('netusb_usb_auto_stopped');
-			$this->createCmd('netusb_attribute');
-			$this->createCmd('netusb_repeat_available');
-			$this->createCmd('netusb_shuffle_available');
 		}
 	}
 
-	public function createCmd($name, $type = 'info', $subtype = 'string', $repeatEventManagement = 'never') {
+	public function createCmd($name, $type = 'info', $subtype = 'string', $repeatEventManagement = 'never', $generic_type = null) {
 		$cmd = $this->getCmd(null, $name);
 		if (!is_object($cmd)) {
 			$cmd = new YamahaMusiccastCmd();
@@ -122,6 +92,7 @@ class YamahaMusiccast extends eqLogic {
 		$cmd->setType($type);
 		$cmd->setSubType($subtype);
 		$cmd->setConfiguration('repeatEventManagement', $repeatEventManagement);
+		$cmd->setGeneric_type($generic_type);
 		$cmd->setEqLogic_id($this->getId());
 		$cmd->save();
 	}
@@ -129,6 +100,37 @@ class YamahaMusiccast extends eqLogic {
 	public function postSave() {
 		$jsonGetFeatures = YamahaMusiccast::CallAPI("GET", $this, "/YamahaExtendedControl/v1/system/getFeatures");
 		$getFeatures = json_decode($jsonGetFeatures);
+		foreach ($getFeatures->zone as $zone) {
+			$zoneName = $zone->id;
+			foreach ($zone->func_list as $func) {
+				$this->createCmd($zoneName . '_' . $func . '_state');
+			}
+			$this->createCmd($zoneName . '_power_on', 'action', 'other', null, 'ENERGY_ON');
+			$this->createCmd($zoneName . '_power_off', 'action', 'other', null, 'ENERGY_OFF');
+
+			$this->createCmd($zoneName . '_audio_error');
+			$this->createCmd($zoneName . '_audio_format');
+			$this->createCmd($zoneName . '_audio_fs');
+		}
+
+		$this->createCmd('netusb_input');
+		$this->createCmd('netusb_play_queue_type');
+		$this->createCmd('netusb_playback');
+		$this->createCmd('netusb_repeat');
+		$this->createCmd('netusb_shuffle');
+		$this->createCmd('netusb_play_time');
+		$this->createCmd('netusb_total_time');
+		$this->createCmd('netusb_artist');
+		$this->createCmd('netusb_album');
+		$this->createCmd('netusb_track');
+		$this->createCmd('netusb_albumart_url');
+		$this->createCmd('netusb_albumart_id');
+		$this->createCmd('netusb_usb_devicetype');
+		$this->createCmd('netusb_usb_auto_stopped');
+		$this->createCmd('netusb_attribute');
+		$this->createCmd('netusb_repeat_available');
+		$this->createCmd('netusb_shuffle_available');
+
 		foreach ($getFeatures->zone as $zone) {
 			YamahaMusiccast::callZoneGetStatus($this, $zone->id);
 		}
@@ -150,12 +152,45 @@ class YamahaMusiccast extends eqLogic {
 		
 	}
 
-	/*
-	 * Non obligatoire mais permet de modifier l'affichage du widget si vous en avez besoin
-	  public function toHtml($_version = 'dashboard') {
+	public function toHtml($_version = 'dashboard') {
+		$replace = $this->preToHtml($_version);
+		if (!is_array($replace)) {
+			return $replace;
+		}
+		$version = jeedom::versionAlias($_version);
+		if ($this->getDisplay('hideOn' . $version) == 1) {
+			return '';
+		}
+		/* ------------ Ajouter votre code ici ------------ */
+		foreach ($this->getCmd('info') as $cmd) {
+			$replace['#' . $cmd->getLogicalId() . '_history#'] = '';
+			$replace['#' . $cmd->getLogicalId() . '_id#'] = $cmd->getId();
+			$replace['#' . $cmd->getLogicalId() . '#'] = $cmd->execCmd();
+			$replace['#' . $cmd->getLogicalId() . '_collect#'] = $cmd->getCollectDate();
+			if ($cmd->getLogicalId() == 'encours') {
+				$replace['#thumbnail#'] = $cmd->getDisplay('icon');
+			}
+			if ($cmd->getIsHistorized() == 1) {
+				$replace['#' . $cmd->getLogicalId() . '_history#'] = 'history cursor';
+			}
+		}
+		if (!is_object($this->getCmd(null, 'zone2_power_state'))) {
+			$replace['#zone2_display#'] = 'display:none;';
+		}
+		if (!is_object($this->getCmd(null, 'zone3_power_state'))) {
+			$replace['#zone3_display#'] = 'display:none;';
+		}
+		if (!is_object($this->getCmd(null, 'zone4_power_state'))) {
+			$replace['#zone4_display#'] = 'display:none;';
+		}
 
-	  }
-	 */
+		foreach ($this->getCmd('action') as $cmd) {
+			$replace['#' . $cmd->getLogicalId() . '_id#'] = $cmd->getId();
+		}
+		/* ------------ N'ajouter plus de code apres ici------------ */
+
+		return $this->postToHtml($_version, template_replace($replace, getTemplate('core', $version, 'YamahaMusiccast', 'YamahaMusiccast')));
+	}
 
 	/*
 	 * Non obligatoire mais ca permet de déclencher une action après modification de variable de configuration
@@ -245,6 +280,7 @@ class YamahaMusiccast extends eqLogic {
 		log::add('YamahaMusiccast', 'debug', 'Lancement d’un socket sur le port ' . $port);
 		$socket = new YamahaMusiccastSocket("0.0.0.0", $port);
 		$socket->run();
+		YamahaMusiccast::callYamahaMusiccast();
 	}
 
 	public static function socket_stop() {
@@ -257,6 +293,7 @@ class YamahaMusiccast extends eqLogic {
 
 	public static function cron5() {
 		log::add('YamahaMusiccast', 'debug', 'Appel du Cron5');
+		YamahaMusiccast::callYamahaMusiccast();
 		$devices = self::byType('YamahaMusiccast');
 		$date = date("Y-m-d H:i:s");
 		foreach ($devices as $device) {
@@ -265,9 +302,25 @@ class YamahaMusiccast extends eqLogic {
 			}
 			$lastCallAPI = $device->getStatus('lastCallAPI');
 			$deltaSeconds = strtotime($date) - strtotime($lastCallAPI);
-			if($deltaSeconds > (5*60)) {
+			if ($deltaSeconds > (4.5 * 60)) {
 				$result = YamahaMusiccast::CallAPI("GET", $device, "/YamahaExtendedControl/v1/system/getDeviceInfo");
-				log::add('YamahaMusiccast', 'debug', $deltaSeconds + 'Appel du Cron5 ' . $result);
+				log::add('YamahaMusiccast', 'debug', 'Mise à jour ' . $device->getName());
+			}
+		}
+	}
+
+	public static function callYamahaMusiccast() {
+		$devices = self::byType('YamahaMusiccast');
+		$date = date("Y-m-d H:i:s");
+		foreach ($devices as $device) {
+			if ($device->getIsEnable() == 0) {
+				continue;
+			}
+			$lastCallAPI = $device->getStatus('lastCallAPI');
+			$deltaSeconds = strtotime($date) - strtotime($lastCallAPI);
+			if ($deltaSeconds > (4.5 * 60)) {
+				$result = YamahaMusiccast::CallAPI("GET", $device, "/YamahaExtendedControl/v1/system/getDeviceInfo");
+				log::add('YamahaMusiccast', 'debug', 'Mise à jour ' . $device->getName());
 			}
 		}
 	}
@@ -283,7 +336,7 @@ class YamahaMusiccast extends eqLogic {
 				break;
 			}
 		}
-		if(empty($device)){
+		if (empty($device)) {
 			log::add('YamahaMusiccast', 'error', 'Erreur lors de traitement_message : device is null');
 			return;
 		}
@@ -292,31 +345,31 @@ class YamahaMusiccast extends eqLogic {
 		if (!empty($system)) {
 			$bluetooth_info_updated = $system->bluetooth_info_updated;
 			if (!empty($bluetooth_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $bluetooth_info_updated - pull renewed info using /system/getBluetoothInfo ' . print_r($bluetooth_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $bluetooth_info_updated - pull renewed info using /system/getBluetoothInfo ' . print_r($bluetooth_info_updated, true));
 			}
 			$func_status_updated = $system->func_status_updated;
 			if (!empty($func_status_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $func_status_updated - pull renewed info using /system/getFuncStatus ' . print_r($func_status_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $func_status_updated - pull renewed info using /system/getFuncStatus ' . print_r($func_status_updated, true));
 			}
 			$location_info_updated = $system->location_info_updated;
 			if (!empty($location_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $location_info_updated - pull renewed info using /system/getLocationInfo ' . print_r($location_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $location_info_updated - pull renewed info using /system/getLocationInfo ' . print_r($location_info_updated, true));
 			}
 			$name_text_updated = $system->name_text_updated;
 			if (!empty($name_text_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $name_text_updated - pull renewed info using /system/getNameText ' . print_r($name_text_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $name_text_updated - pull renewed info using /system/getNameText ' . print_r($name_text_updated, true));
 			}
 			$speaker_settings_updated = $system->speaker_settings_updated;
 			if (!empty($speaker_settings_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $speaker_settings_updated - Reserved ' . print_r($speaker_settings_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $speaker_settings_updated - Reserved ' . print_r($speaker_settings_updated, true));
 			}
 			$stereo_pair_info_updated = $system->stereo_pair_info_updated;
 			if (!empty($stereo_pair_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $stereo_pair_info_updated - Reserved ' . print_r($stereo_pair_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $stereo_pair_info_updated - Reserved ' . print_r($stereo_pair_info_updated, true));
 			}
 			$tag_updated = $system->tag_updated;
 			if (!empty($tag_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: $tag_updated - Reserved ' . print_r($tag_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: $tag_updated - Reserved ' . print_r($tag_updated, true));
 			}
 		}
 		$main = $result->main;
@@ -339,11 +392,11 @@ class YamahaMusiccast extends eqLogic {
 		if (!empty($tuner)) {
 			$play_info_updated = $tuner->play_info_updated;
 			if (!empty($play_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: Mise à jour du isPlayInfoUpdated Main - Note: If so, pull renewed info using /tuner/getPlayInf' . print_r($play_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Mise à jour du isPlayInfoUpdated Main - Note: If so, pull renewed info using /tuner/getPlayInf' . print_r($play_info_updated, true));
 			}
 			$preset_info_updated = $tuner->preset_info_updated;
 			if (!empty($preset_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: Mise à jour du isPresetInfoUpdated Main - Note: If so, pull renewed info using /tuner/getPresetInfo' . print_r($preset_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Mise à jour du isPresetInfoUpdated Main - Note: If so, pull renewed info using /tuner/getPresetInfo' . print_r($preset_info_updated, true));
 			}
 		}
 		$netusb = $result->netusb;
@@ -372,7 +425,7 @@ class YamahaMusiccast extends eqLogic {
 				 * </p>
 				 * <p>Note: Rhapsody service name will be changed to Napster.</p>
 				 */
-				log::add('YamahaMusiccast', 'debug', 'TODO: Mise à jour du $play_error ' . print_r($play_error, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Mise à jour du $play_error ' . print_r($play_error, true));
 			}
 			$multiple_play_errors = $netusb->multiple_play_errors;
 			if (!empty($multiple_play_errors)) {
@@ -387,15 +440,15 @@ class YamahaMusiccast extends eqLogic {
 				 * 	<li>b[11] Intent Restricted by Streaming Credentials (Qobuz)</li>
 				 * </ul>
 				 */
-				log::add('YamahaMusiccast', 'debug', 'TODO: Mise à jour du $multiple_play_errors ' . print_r($multiple_play_errors, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Mise à jour du $multiple_play_errors ' . print_r($multiple_play_errors, true));
 			}
 			$play_message = $netusb->play_message;
 			if (!empty($play_message)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: Playback related message ' . print_r($play_message, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Playback related message ' . print_r($play_message, true));
 			}
 			$account_updated = $netusb->account_updated;
 			if (!empty($account_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: Whether or not account info has changed. Note: If so, pull renewed info using /netusb/getAccountStatus. ' . print_r($account_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Whether or not account info has changed. Note: If so, pull renewed info using /netusb/getAccountStatus. ' . print_r($account_updated, true));
 			}
 			$play_time = $netusb->play_time;
 			if (!empty($play_time)) {
@@ -403,23 +456,23 @@ class YamahaMusiccast extends eqLogic {
 			}
 			$preset_info_updated = $netusb->preset_info_updated;
 			if (!empty($preset_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: Whether or not preset info has changed. - Note: If so, pull renewed info using netusb/getPresetInfo ' . print_r($preset_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Whether or not preset info has changed. - Note: If so, pull renewed info using netusb/getPresetInfo ' . print_r($preset_info_updated, true));
 			}
 			$recent_info_updated = $netusb->recent_info_updated;
 			if (!empty($recent_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO:  Whether or not playback history info has changed. - Note: If so, pull renewed info using netusb/getRecentInfo ' . print_r($recent_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO:  Whether or not playback history info has changed. - Note: If so, pull renewed info using netusb/getRecentInfo ' . print_r($recent_info_updated, true));
 			}
 			$preset_control = $netusb->preset_control;
 			if (!empty($preset_control)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO:  Results of Preset operations. ' . print_r($preset_control, true));
+				log::add('YamahaMusiccast', 'info', 'TODO:  Results of Preset operations. ' . print_r($preset_control, true));
 			}
 			$trial_status = $netusb->trial_status;
 			if (!empty($trial_status)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO:  Trial status of a Device. ' . print_r($trial_status, true));
+				log::add('YamahaMusiccast', 'info', 'TODO:  Trial status of a Device. ' . print_r($trial_status, true));
 			}
 			$trial_time_left = $netusb->trial_time_left;
 			if (!empty($trial_time_left)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO:  Remaining time of a trial. ' . print_r($trial_time_left, true));
+				log::add('YamahaMusiccast', 'info', 'TODO:  Remaining time of a trial. ' . print_r($trial_time_left, true));
 			}
 			$play_info_updated = $netusb->play_info_updated;
 			if (!empty($play_info_updated)) {
@@ -427,22 +480,22 @@ class YamahaMusiccast extends eqLogic {
 			}
 			$list_info_updated = $netusb->list_info_updated;
 			if (!empty($list_info_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: Returns whether or not list info has changed. Note: If so, pull renewed info using /netusb/getListInfo. ' . print_r($list_info_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: Returns whether or not list info has changed. Note: If so, pull renewed info using /netusb/getListInfo. ' . print_r($list_info_updated, true));
 			}
 		}
 		$cd = $result->cd;
 		if (!empty($cd)) {
-			log::add('YamahaMusiccast', 'debug', 'TODO: CD. ' . print_r($cd, true));
+			log::add('YamahaMusiccast', 'info', 'TODO: CD. ' . print_r($cd, true));
 		}
 		$dist = $result->dist;
 		if (!empty($dist)) {
-			log::add('YamahaMusiccast', 'debug', 'TODO: $dist. ' . print_r($dist, true));
+			log::add('YamahaMusiccast', 'info', 'TODO: $dist. ' . print_r($dist, true));
 		}
 		$clock = $result->clock;
 		if (!empty($clock)) {
 			$settings_updated = $clock->settings_updated;
 			if (!empty($settings_updated)) {
-				log::add('YamahaMusiccast', 'debug', 'TODO: isSettingsUpdated ' . print_r($settings_updated, true));
+				log::add('YamahaMusiccast', 'info', 'TODO: isSettingsUpdated ' . print_r($settings_updated, true));
 			}
 		}
 		$device->refreshWidget();
@@ -452,19 +505,19 @@ class YamahaMusiccast extends eqLogic {
 	static function callZone($device, $zoneName, $zone) {
 		$power = $zone->power;
 		if (!empty($power)) {
-			$device->checkAndUpdateCmd($zoneName. '_power_state', $power);
+			$device->checkAndUpdateCmd($zoneName . '_power_state', $power);
 		}
 		$input = $zone->input;
 		if (!empty($input)) {
-			$device->checkAndUpdateCmd($zoneName. '_input_change_state', $input);
+			$device->checkAndUpdateCmd($zoneName . '_input_change_state', $input);
 		}
 		$volume = $zone->volume;
 		if (!empty($volume)) {
-			$device->checkAndUpdateCmd($zoneName. '_volume_state', $volume);
+			$device->checkAndUpdateCmd($zoneName . '_volume_state', $volume);
 		}
 		$mute = $zone->mute;
 		if (!empty($mute)) {
-			$device->checkAndUpdateCmd($zoneName. '_mute_state', $mute);
+			$device->checkAndUpdateCmd($zoneName . '_mute_state', $mute);
 		}
 		$status_updated = $zone->status_updated;
 		if (!empty($status_updated)) {
@@ -482,13 +535,13 @@ class YamahaMusiccast extends eqLogic {
 		$audio = $result->audio;
 		if (!empty($audio)) {
 			if (!empty($audio->error)) {
-				$device->checkAndUpdateCmd($zoneName. '_audio_error', $audio->error);
+				$device->checkAndUpdateCmd($zoneName . '_audio_error', $audio->error);
 			}
 			if (!empty($audio->format)) {
-				$device->checkAndUpdateCmd($zoneName. '_audio_format', $audio->format);
+				$device->checkAndUpdateCmd($zoneName . '_audio_format', $audio->format);
 			}
 			if (!empty($audio->fs)) {
-				$device->checkAndUpdateCmd($zoneName. '_audio_fs', $audio->fs);
+				$device->checkAndUpdateCmd($zoneName . '_audio_fs', $audio->fs);
 			}
 		}
 	}
@@ -556,14 +609,14 @@ class YamahaMusiccast extends eqLogic {
 	static function callZoneGetStatus($device, $zoneName) {
 		$jsonGetStatusZone = YamahaMusiccast::CallAPI("GET", $device, "/YamahaExtendedControl/v1/$zoneName/getStatus");
 		$getStatusZone = json_decode($jsonGetStatusZone);
-		$device->checkAndUpdateCmd($zoneName. '_power_state', $getStatusZone->power);
-		$device->checkAndUpdateCmd($zoneName. '_volume_state', $getStatusZone->volume);
-		$device->checkAndUpdateCmd($zoneName. '_mute_state', $getStatusZone->mute);
-		$device->checkAndUpdateCmd($zoneName. '_input_change_state', $getStatusZone->input);
-		$device->checkAndUpdateCmd($zoneName. '_sound_program_state', $getStatusZone->sound_program);
-		$device->checkAndUpdateCmd($zoneName. '_link_audio_quality_state', $getStatusZone->link_audio_quality);
-		$device->checkAndUpdateCmd($zoneName. '_link_audio_delay_state', $getStatusZone->link_audio_delay);
-		$device->checkAndUpdateCmd($zoneName. '_link_control_state', $getStatusZone->link_control);
+		$device->checkAndUpdateCmd($zoneName . '_power_state', $getStatusZone->power);
+		$device->checkAndUpdateCmd($zoneName . '_volume_state', $getStatusZone->volume);
+		$device->checkAndUpdateCmd($zoneName . '_mute_state', $getStatusZone->mute);
+		$device->checkAndUpdateCmd($zoneName . '_input_change_state', $getStatusZone->input);
+		$device->checkAndUpdateCmd($zoneName . '_sound_program_state', $getStatusZone->sound_program);
+		$device->checkAndUpdateCmd($zoneName . '_link_audio_quality_state', $getStatusZone->link_audio_quality);
+		$device->checkAndUpdateCmd($zoneName . '_link_audio_delay_state', $getStatusZone->link_audio_delay);
+		$device->checkAndUpdateCmd($zoneName . '_link_control_state', $getStatusZone->link_control);
 	}
 
 	static function CallAPI($method, $device, $path, $data = false) {
@@ -599,7 +652,7 @@ class YamahaMusiccast extends eqLogic {
 		$result = curl_exec($curl);
 
 		curl_close($curl);
-		
+
 		$device->setStatus('lastCallAPI', date("Y-m-d H:i:s"));
 
 		return $result;
