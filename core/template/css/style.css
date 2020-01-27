@@ -1,0 +1,90 @@
+.YamahaMusiccast .zone {
+	border: 1px solid black;
+	height: 150px;
+}
+
+.YamahaMusiccast .zone .display,.YamahaMusiccast .zone .displayoff {
+	position: relative;
+	height: inherit;
+	overflow: auto;
+}
+.YamahaMusiccast .zone .center {
+	text-align: center;
+}
+
+.YamahaMusiccast .zone .display .pochette {
+	height: 80px;
+	margin: 5px;
+	border-radius: 10%;
+}
+
+.YamahaMusiccast .zone .display .pochette_input {
+	position: absolute;
+	top: 70px;
+	left: 70px;
+	height: 20px;
+	border-radius: 5%;
+}
+
+.YamahaMusiccast .zone .btn {
+	float:left;
+	padding: 4px 4px;
+}
+
+.YamahaMusiccast .zone .name {
+	writing-mode: vertical-lr;
+	height: 100%;
+	float: right;
+	text-align: center;
+	background-color: #ffffff20;
+}
+
+.YamahaMusiccast .zone .name span {
+	cursor: default;
+	line-height:28px;
+}
+
+.YamahaMusiccast .zone .audio_format {
+	position: absolute;
+	top: 75px;
+	left: 2px;
+	border-radius: 10%;
+	padding: 0 2px;
+	background-color: gainsboro;
+	font-size: xx-small;
+}
+
+
+.volume_range {
+	-webkit-appearance: none;
+	width: 100%;
+	height: 10px;
+	border-radius: 5px;
+	background: #d3d3d3;
+	outline: none;
+	opacity: 0.7;
+	-webkit-transition: .2s;
+	transition: opacity .2s;
+}
+
+.volume_range:hover {
+  opacity: 1;
+}
+
+.volume_range::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 23px;
+	height: 24px;
+	border: 0;
+	background: url('sound.png');
+	cursor: pointer;
+}
+
+.volume_range::-moz-range-thumb {
+	width: 23px;
+	height: 24px;
+	border: 0;
+	background: url('sound.png');
+	cursor: pointer;
+}

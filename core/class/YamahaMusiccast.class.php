@@ -65,14 +65,14 @@ class YamahaMusiccast extends eqLogic {
 		$this->setCategory('multimedia', 1);
 		if (empty($this->getLogicalId())) {
 			$this->setLogicalId($this->getName());
+			$this->setIsVisible(1);
+			$this->setIsEnable(1);
 		}
 		$jsonGetNetworkStatus = YamahaMusiccast::CallAPI("GET", $this, "/YamahaExtendedControl/v1/system/getNetworkStatus");
 		if ($jsonGetNetworkStatus === false) {
 			$this->setIsVisible(0);
 			$this->setIsEnable(0);
 		} else {
-			$this->setIsVisible(1);
-			$this->setIsEnable(1);
 			$getNetworkStatus = json_decode($jsonGetNetworkStatus);
 			$this->setName($getNetworkStatus->network_name);
 
@@ -98,6 +98,7 @@ class YamahaMusiccast extends eqLogic {
 	}
 
 	public function postSave() {
+		mkdir(dirname(__FILE__) . '/../../../../plugins/YamahaMusiccast/ressources/' . $this->getId(), 0700);
 		$jsonGetFeatures = YamahaMusiccast::CallAPI("GET", $this, "/YamahaExtendedControl/v1/system/getFeatures");
 		$getFeatures = json_decode($jsonGetFeatures);
 		foreach ($getFeatures->zone as $zone) {
@@ -105,8 +106,11 @@ class YamahaMusiccast extends eqLogic {
 			foreach ($zone->func_list as $func) {
 				$this->createCmd($zoneName . '_' . $func . '_state');
 			}
+			$this->createCmd($zoneName . '_max_volume');
+			$this->createCmd($zoneName . '_input');
 			$this->createCmd($zoneName . '_power_on', 'action', 'other', null, 'ENERGY_ON');
 			$this->createCmd($zoneName . '_power_off', 'action', 'other', null, 'ENERGY_OFF');
+			$this->createCmd($zoneName . '_volume_change', 'action', 'slider', null, 'SET_VOLUME');
 
 			$this->createCmd($zoneName . '_audio_error');
 			$this->createCmd($zoneName . '_audio_format');
@@ -145,7 +149,24 @@ class YamahaMusiccast extends eqLogic {
 	}
 
 	public function preRemove() {
-		
+		rrmdir(dirname(__FILE__) . '/../../../../plugins/YamahaMusiccast/ressources/' . $this->getId());
+	}
+	// When the directory is not empty:
+	function rrmdir($dir) {
+		if (is_dir($dir)) {
+			$objects = scandir($dir);
+			foreach ($objects as $object) {
+				if ($object != "." && $object != "..") {
+					if (filetype($dir . "/" . $object) == "dir") {
+						rmdir($dir . "/" . $object);
+					} else {
+						unlink($dir . "/" . $object);
+					}
+				}
+			}
+			reset($objects);
+			rmdir($dir);
+		}
 	}
 
 	public function postRemove() {
@@ -174,6 +195,11 @@ class YamahaMusiccast extends eqLogic {
 				$replace['#' . $cmd->getLogicalId() . '_history#'] = 'history cursor';
 			}
 		}
+		if($this->getCmd(null, 'main_power_state')->execCmd() === 'on') {
+			$replace['#main_power_action_id#'] = $this->getCmd(null, 'main_power_off')->getId();
+		} else {
+			$replace['#main_power_action_id#'] = $this->getCmd(null, 'main_power_on')->getId();
+		}
 		if (!is_object($this->getCmd(null, 'zone2_power_state'))) {
 			$replace['#zone2_display#'] = 'display:none;';
 		}
@@ -186,6 +212,12 @@ class YamahaMusiccast extends eqLogic {
 
 		foreach ($this->getCmd('action') as $cmd) {
 			$replace['#' . $cmd->getLogicalId() . '_id#'] = $cmd->getId();
+		}
+		
+		if (file_exists(dirname(__FILE__) . '/../../../../plugins/YamahaMusiccast/ressources/' . $this->getId() . '/AlbumART.jpg')) {
+			$replace['#netusb_albumart_url#'] = '/plugins/YamahaMusiccast/ressources/' . $this->getId() . '/AlbumART.jpg';
+		} else {
+			$replace['#netusb_albumart_url#'] = '/plugins/YamahaMusiccast/plugin_info/YamahaMusiccast_icon.png';
 		}
 		/* ------------ N'ajouter plus de code apres ici------------ */
 
@@ -294,19 +326,6 @@ class YamahaMusiccast extends eqLogic {
 	public static function cron5() {
 		log::add('YamahaMusiccast', 'debug', 'Appel du Cron5');
 		YamahaMusiccast::callYamahaMusiccast();
-		$devices = self::byType('YamahaMusiccast');
-		$date = date("Y-m-d H:i:s");
-		foreach ($devices as $device) {
-			if ($device->getIsEnable() == 0) {
-				continue;
-			}
-			$lastCallAPI = $device->getStatus('lastCallAPI');
-			$deltaSeconds = strtotime($date) - strtotime($lastCallAPI);
-			if ($deltaSeconds > (4.5 * 60)) {
-				$result = YamahaMusiccast::CallAPI("GET", $device, "/YamahaExtendedControl/v1/system/getDeviceInfo");
-				log::add('YamahaMusiccast', 'debug', 'Mise à jour ' . $device->getName());
-			}
-		}
 	}
 
 	public static function callYamahaMusiccast() {
@@ -509,7 +528,7 @@ class YamahaMusiccast extends eqLogic {
 		}
 		$input = $zone->input;
 		if (!empty($input)) {
-			$device->checkAndUpdateCmd($zoneName . '_input_change_state', $input);
+			$device->checkAndUpdateCmd($zoneName . '_input', $input);
 		}
 		$volume = $zone->volume;
 		if (!empty($volume)) {
@@ -580,8 +599,15 @@ class YamahaMusiccast extends eqLogic {
 		if (!empty($result->track)) {
 			$device->checkAndUpdateCmd('netusb_track', $result->track);
 		}
+		$fileAlbumART = dirname(__FILE__) . '/../../../../plugins/YamahaMusiccast/ressources/' . $device->getId() . '/AlbumART.jpg';
 		if (!empty($result->albumart_url)) {
+			$url = "http://" . $device->getLogicalId() . $result->albumart_url;
+			file_put_contents($fileAlbumART, file_get_contents($url));
 			$device->checkAndUpdateCmd('netusb_albumart_url', $result->albumart_url);
+		} else {
+			if(file_exists($fileAlbumART)) {
+				unlink($fileAlbumART);
+			}
 		}
 		if (!empty($result->albumart_id)) {
 			$device->checkAndUpdateCmd('netusb_albumart_id', $result->albumart_id);
@@ -610,9 +636,10 @@ class YamahaMusiccast extends eqLogic {
 		$jsonGetStatusZone = YamahaMusiccast::CallAPI("GET", $device, "/YamahaExtendedControl/v1/$zoneName/getStatus");
 		$getStatusZone = json_decode($jsonGetStatusZone);
 		$device->checkAndUpdateCmd($zoneName . '_power_state', $getStatusZone->power);
+		$device->checkAndUpdateCmd($zoneName . '_max_volume', $getStatusZone->max_volume);
 		$device->checkAndUpdateCmd($zoneName . '_volume_state', $getStatusZone->volume);
 		$device->checkAndUpdateCmd($zoneName . '_mute_state', $getStatusZone->mute);
-		$device->checkAndUpdateCmd($zoneName . '_input_change_state', $getStatusZone->input);
+		$device->checkAndUpdateCmd($zoneName . '_input', $getStatusZone->input);
 		$device->checkAndUpdateCmd($zoneName . '_sound_program_state', $getStatusZone->sound_program);
 		$device->checkAndUpdateCmd($zoneName . '_link_audio_quality_state', $getStatusZone->link_audio_quality);
 		$device->checkAndUpdateCmd($zoneName . '_link_audio_delay_state', $getStatusZone->link_audio_delay);
@@ -621,6 +648,7 @@ class YamahaMusiccast extends eqLogic {
 
 	static function CallAPI($method, $device, $path, $data = false) {
 		$port = config::byKey('socket.port', 'YamahaMusiccast');
+		$name = config::byKey('socket.name', 'YamahaMusiccast');
 		$curl = curl_init();
 
 		switch ($method) {
@@ -642,7 +670,7 @@ class YamahaMusiccast extends eqLogic {
 		// Optional Authentication:
 		curl_setopt($curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
 		$header[0] = "Content-Type: application/json";
-		$header[1] = "X-AppName: Musiccast/Jeedom";
+		$header[1] = "X-AppName: $name/1.0";
 		$header[2] = "X-AppPort: $port";
 		curl_setopt($curl, CURLOPT_HTTPHEADER, $header);
 		$url = "http://" . $device->getLogicalId() . $path;
