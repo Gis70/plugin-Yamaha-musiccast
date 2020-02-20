@@ -28,8 +28,11 @@ $eqLogics = eqLogic::byType($plugin->getId());
 	<div class="col-lg-2 col-md-3 col-sm-4">
 		<div class="bs-sidebar">
 			<ul id="ul_eqLogic" class="nav nav-list bs-sidenav">
-				<a class="btn btn-default eqLogicAction searchMusiccast" style="width : 100%;margin-top : 5px;margin-bottom: 5px;">
+				<a class="btn btn-default eqLogicAction" data-action="searchMusiccast" style="width : 100%;margin-top : 5px;margin-bottom: 5px;">
 					<i class="fa fa-search-plus"></i> {{Recherche des appareils Musiccast}}
+				</a>
+				<a class="btn btn-default eqLogicAction" data-action="addIP" style="width : 100%;margin-top : 5px;margin-bottom: 5px;">
+					<i class="fa fa-plus-circle"></i> {{Recherche un appareil avec une IP}}
 				</a>
 				<li class="filter" style="margin-bottom: 5px;">
 					<input class="filter form-control input-sm" placeholder="{{Rechercher}}" style="width: 100%"/>
@@ -48,25 +51,31 @@ $eqLogics = eqLogic::byType($plugin->getId());
 		 style="border-left: solid 1px #EEE; padding-left: 25px;">
 		<legend><i class="fa fa-cog"></i> {{Gestion}}</legend>
 		<div class="eqLogicThumbnailContainer">
-			<div class="cursor eqLogicAction searchMusiccast"
-				 style="text-align: center; background-color : #ffffff; height : 120px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;">
-				<i class="fa fa-search-plus" style="font-size : 6em;"></i>
-				<br>
-				<span style="font-size : 1.1em;position:relative; top : 15px;">{{Recherche automatique}}</span>
-			</div>
 			<div class="cursor eqLogicAction" data-action="gotoPluginConf"
-				 style="text-align: center; background-color : #ffffff; height : 120px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;">
-				<i class="fa fa-wrench" style="font-size : 6em;color:#767676;"></i>
+				 style="text-align: center; height : 120px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;">
+				<i class="fa fa-wrench" style="font-size : 6em;"></i>
 				<br>
 				<span style="font-size : 1.1em;position:relative; top : 15px;">{{Configuration}}</span>
 			</div>
+			<div class="cursor eqLogicAction" data-action="searchMusiccast"
+				 style="text-align: center; height : 120px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;">
+				<i class="fa fa-search-plus" style="font-size : 6em;"></i>
+				<br>
+				<span style="font-size : 1.1em;position:relative; top : 15px;">{{Recherche auto}}</span>
+			</div>
+			<div class="cursor eqLogicAction" data-action="addIP" title="{{Cette opération est utitile quand les appareils ne se trouve pas sur le même réseau (ex: Docker ou VM en mode bridge)}}"
+				 style="text-align: center; height : 120px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;">
+				<i class="fa fa-plus-circle" style="font-size : 6em;"></i>
+				<br>
+				<span style="font-size : 1.1em;position:relative; top : 15px;">{{Rechercher IP}}</span>
+			</div>
 		</div>
-		<legend><i class="fa fa-table"></i> {{Mes Musiccasts}}</legend>
+		<legend><i class="fa fa-table"></i> {{Mes appareils Musiccast}}</legend>
 		<div class="eqLogicThumbnailContainer">
 			<?php
 			foreach ($eqLogics as $eqLogic) {
 				$opacity = ($eqLogic->getIsEnable()) ? '' : jeedom::getConfiguration('eqLogic:style:noactive');
-				echo '<div class="eqLogicDisplayCard cursor" data-eqLogic_id="' . $eqLogic->getId() . '" style="text-align: center; background-color : #ffffff; height : 200px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;' . $opacity . '" >';
+				echo '<div class="eqLogicDisplayCard cursor" data-eqLogic_id="' . $eqLogic->getId() . '" style="text-align: center; height : 200px;margin-bottom : 10px;padding : 5px;border-radius: 2px;width : 160px;margin-left : 10px;' . $opacity . '" >';
 				echo '<img src="' . $plugin->getPathImgIcon() . '" height="105" width="95" />';
 				echo "<br>";
 				echo '<span style="font-size : 1.1em;position:relative; top : 15px;word-break: break-all;white-space: pre-wrap;word-wrap: break-word;">' . $eqLogic->getHumanName(true, true) . '</span>';
@@ -149,6 +158,34 @@ $eqLogics = eqLogic::byType($plugin->getId());
 							<div class="col-sm-3">
 								<input type="text" disabled="disabled" class="eqLogicAttr form-control" id="Musiccast-param"
 									   data-l1key="configuration" data-l2key="model_name"/>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="col-sm-3 control-label" for="Musiccast-param">{{ip}}</label>
+							<div class="col-sm-3">
+								<input type="text" disabled="disabled" class="eqLogicAttr form-control" id="Musiccast-param"
+									   data-l1key="configuration" data-l2key="ip"/>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="col-sm-3 control-label" for="Musiccast-param">{{zone}}</label>
+							<div class="col-sm-3">
+								<input type="text" disabled="disabled" class="eqLogicAttr form-control" id="Musiccast-param"
+									   data-l1key="configuration" data-l2key="zone"/>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="col-sm-3 control-label" for="Musiccast-param">{{lastCommunication}}</label>
+							<div class="col-sm-3">
+								<input type="text" disabled="disabled" class="eqLogicAttr form-control" id="Musiccast-param"
+									   data-l1key="status" data-l2key="lastCommunication"/>
+							</div>
+						</div>
+						<div class="form-group">
+							<label class="col-sm-3 control-label" for="Musiccast-param">{{lastCallAPI}}</label>
+							<div class="col-sm-3">
+								<input type="text" disabled="disabled" class="eqLogicAttr form-control" id="Musiccast-param"
+									   data-l1key="status" data-l2key="lastCallAPI"/>
 							</div>
 						</div>
 					</fieldset>

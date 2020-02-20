@@ -31,4 +31,5 @@ class ajax
     {
         MockedActions::add('ajax_success');
     }
+
 }
